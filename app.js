@@ -9,8 +9,11 @@
 
     const { createAllTables } = require("./database/createTables");
     const authRoute = require("./routes/authRoute");
+    const careersMasterRoute = require("./routes/careersMasterRoutes");
 
-
+    const jobsRoutes = require("./routes/jobsRoutes");
+    
+    
     // Middleware   
     app.use(cors({
         origin: process.env.FRONTEND_URL || "http://localhost:5173",
@@ -24,6 +27,8 @@
     // Routes
     // Changed path to /api to keep it clean
     app.use("/api", authRoute); 
+    app.use("/api/careers/master", careersMasterRoute);
+    app.use("/api", jobsRoutes);
 
     app.get("/", (req, res) => {
         res.send("Backend Services are running!.");
