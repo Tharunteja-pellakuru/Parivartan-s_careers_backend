@@ -1,186 +1,705 @@
-const db = require("../config/db");
-const bcrypt = require("bcrypt");
-const { v4: uuidv4 } = require("uuid");
+    const db = require("../config/db");
+    const bcrypt = require("bcrypt");
+    const { v4: uuidv4 } = require("uuid");
 
-/* ======================================================
-   CREATE ADMIN TABLE
-====================================================== */
+    /* ======================================================
+      CREATE ADMIN TABLE
+    ====================================================== */
 
-const createCareersAdminsTable = async () => {
-  try {
+    const createCareersAdminsTable = async () => {
+      try {
 
-    const query = `
-      CREATE TABLE IF NOT EXISTS careers_tbl_admins (
+        const query = `
+          CREATE TABLE IF NOT EXISTS careers_tbl_admins (
 
-          id INT PRIMARY KEY AUTO_INCREMENT,
+              id INT PRIMARY KEY AUTO_INCREMENT,
 
-          uuid CHAR(36) NOT NULL UNIQUE,
+              uuid CHAR(36) NOT NULL UNIQUE,
 
-          full_name VARCHAR(150) NOT NULL,
+              full_name VARCHAR(150) NOT NULL,
 
-          email VARCHAR(150) NOT NULL UNIQUE,
+              email VARCHAR(150) NOT NULL UNIQUE,
 
-          password VARCHAR(255) NOT NULL,
+              password VARCHAR(255) NOT NULL,
 
-          role ENUM(
-              'Root Admin',
-              'Admin',
-              'HR'
-          ) DEFAULT 'HR',
+              role ENUM(
+                  'Root Admin',
+                  'Admin',
+                  'HR'
+              ) DEFAULT 'HR',
 
-          status ENUM(
-              'Active',
-              'Inactive'
-          ) DEFAULT 'Active',
+              status ENUM(
+                  'Active',
+                  'Inactive'
+              ) DEFAULT 'Active',
 
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
-          created_by INT NULL,
+              created_by INT NULL,
 
-          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-              ON UPDATE CURRENT_TIMESTAMP,
+              updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                  ON UPDATE CURRENT_TIMESTAMP,
 
-          updated_by INT NULL
+              updated_by INT NULL
 
-      )
-    `;
+          )
+        `;
 
-    await db.query(query);
+        await db.query(query);
 
-    await createDefaultRootUser();
+        await createDefaultRootUser();
 
-  } catch (error) {
-    console.error("Error creating careers_tbl_admins:", error.message);
-  }
-};
+      } catch (error) {
+        console.error("Error creating careers_tbl_admins:", error.message);
+      }
+    };
 
-/* ======================================================
-   CREATE DEPARTMENTS TABLE
-====================================================== */
+    /* ======================================================
+      CREATE DEPARTMENTS TABLE
+    ====================================================== */
 
-const createCareersDepartmentsTable = async () => {
-  try {
+    const createCareersDepartmentsTable = async () => {
+      try {
 
-    const query = `
-      CREATE TABLE IF NOT EXISTS careers_tbl_departments (
+        const query = `
+          CREATE TABLE IF NOT EXISTS careers_tbl_departments (
 
-          id INT PRIMARY KEY AUTO_INCREMENT,
+              id INT PRIMARY KEY AUTO_INCREMENT,
 
-          uuid CHAR(36) NOT NULL UNIQUE,
+              uuid CHAR(36) NOT NULL UNIQUE,
 
-          department_name VARCHAR(150) NOT NULL UNIQUE,
+              department_name VARCHAR(150) NOT NULL UNIQUE,
 
-          department_slug VARCHAR(150) NOT NULL UNIQUE,
+              department_slug VARCHAR(150) NOT NULL UNIQUE,
 
-          status ENUM(
-              'Active',
-              'Inactive'
-          ) DEFAULT 'Active',
+              status ENUM(
+                  'Active',
+                  'Inactive'
+              ) DEFAULT 'Active',
 
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
-          created_by INT NULL,
+              created_by INT NULL,
 
-          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-              ON UPDATE CURRENT_TIMESTAMP,
+              updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                  ON UPDATE CURRENT_TIMESTAMP,
 
-          updated_by INT NULL
+              updated_by INT NULL
 
-      )
-    `;
+          )
+        `;
 
-    await db.query(query);
+        await db.query(query);
 
-    await createDefaultDepartments();
+        await createDefaultDepartments();
 
-  } catch (error) {
-    console.error(
-      "Error creating careers_tbl_departments:",
-      error.message
-    );
-  }
-};
+      } catch (error) {
+        console.error(
+          "Error creating careers_tbl_departments:",
+          error.message
+        );
+      }
+    };
 
-/* ======================================================
-   INSERT DEFAULT DEPARTMENTS
-====================================================== */
+    /* ======================================================
+      INSERT DEFAULT DEPARTMENTS
+    ====================================================== */
 
-const createDefaultDepartments = async () => {
-  try {
+    const createDefaultDepartments = async () => {
+      try {
 
-    const departments = [
-      "Development",
-      "Design",
-      "Digital Marketing",
-      "Media"
-    ];
+        const departments = [
+          "Development",
+          "Design",
+          "Digital Marketing",
+          "Media"
+        ];
 
-    for (const dept of departments) {
+        for (const dept of departments) {
 
-      const slug = dept
-        .toLowerCase()
-        .replace(/\s+/g, "-");
+          const slug = dept
+            .toLowerCase()
+            .replace(/\s+/g, "-");
 
-      const [existing] = await db.query(
-        "SELECT id FROM careers_tbl_departments WHERE department_name = ?",
-        [dept]
-      );
+          const [existing] = await db.query(
+            "SELECT id FROM careers_tbl_departments WHERE department_name = ?",
+            [dept]
+          );
 
-      if (existing.length === 0) {
+          if (existing.length === 0) {
+
+            await db.query(
+              `
+              INSERT INTO careers_tbl_departments (
+                uuid,
+                department_name,
+                department_slug,
+                status,
+                created_by
+              )
+              VALUES (?, ?, ?, 'Active', 1)
+              `,
+              [
+                uuidv4(),
+                dept,
+                slug
+              ]
+            );
+
+          }
+        }
+
+      } catch (error) {
+        console.error(
+          "Error inserting default departments:",
+          error.message
+        );
+      }
+    };
+
+    /* ======================================================
+      CREATE CATEGORIES TABLE
+    ====================================================== */
+
+    const createCareersCategoriesTable = async () => {
+      try {
+
+        const query = `
+          CREATE TABLE IF NOT EXISTS careers_tbl_categories (
+
+              id INT PRIMARY KEY AUTO_INCREMENT,
+
+              uuid CHAR(36) NOT NULL UNIQUE,
+
+              department_id INT NOT NULL,
+
+              category_name VARCHAR(150) NOT NULL,
+
+              category_slug VARCHAR(150) NOT NULL,
+
+              status ENUM(
+                  'Active',
+                  'Inactive'
+              ) DEFAULT 'Active',
+
+              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+              created_by INT NULL,
+
+              updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                  ON UPDATE CURRENT_TIMESTAMP,
+
+              updated_by INT NULL,
+
+              CONSTRAINT fk_category_department
+                  FOREIGN KEY (department_id)
+                  REFERENCES careers_tbl_departments(id)
+                  ON DELETE CASCADE
+
+          )
+        `;
+
+        await db.query(query);
+
+        await createDefaultCategories();
+
+      } catch (error) {
+        console.error(
+          "Error creating careers_tbl_categories:",
+          error.message
+        );
+      }
+    };
+
+    /* ======================================================
+      INSERT DEFAULT CATEGORIES
+    ====================================================== */
+
+    const createDefaultCategories = async () => {
+      try {
+
+        const categoriesMap = {
+
+          Development: [
+            "Web Development",
+            "Mobile Development",
+            "DevOps & Cloud",
+            "Quality Assurance",
+            "Database",
+            "Architecture",
+            "Integration"
+          ],
+
+          Design: [
+            "UI/UX Design",
+            "Graphic Design",
+            "Product Design",
+            "Motion Graphics",
+            "Branding"
+          ],
+
+          "Digital Marketing": [
+            "SEO",
+            "Social Media Marketing",
+            "Performance Marketing",
+            "Content Marketing",
+            "Email Marketing"
+          ],
+
+          Media: [
+            "Videography",
+            "Video Editing",
+            "Video Production",
+            "Photography",
+            "Content Creation",
+            "Post Production",
+            "Motion Graphics & Animation"
+          ]
+
+        };
+
+        for (const departmentName in categoriesMap) {
+
+          const [dept] = await db.query(
+            `
+            SELECT id
+            FROM careers_tbl_departments
+            WHERE department_name = ?
+            `,
+            [departmentName]
+          );
+
+          if (dept.length === 0) continue;
+
+          const departmentId = dept[0].id;
+
+          for (const category of categoriesMap[departmentName]) {
+
+            const slug = category
+              .toLowerCase()
+              .replace(/\s+/g, "-");
+
+            const [existing] = await db.query(
+              `
+              SELECT id
+              FROM careers_tbl_categories
+              WHERE category_name = ?
+              AND department_id = ?
+              `,
+              [category, departmentId]
+            );
+
+            if (existing.length === 0) {
+
+              await db.query(
+                `
+                INSERT INTO careers_tbl_categories (
+                  uuid,
+                  department_id,
+                  category_name,
+                  category_slug,
+                  status,
+                  created_by
+                )
+                VALUES (?, ?, ?, ?, 'Active', 1)
+                `,
+                [
+                  uuidv4(),
+                  departmentId,
+                  category,
+                  slug
+                ]
+              );
+
+            }
+          }
+        }
+
+      } catch (error) {
+        console.error(
+          "Error inserting default categories:",
+          error.message
+        );
+      }
+    };
+
+    /* ======================================================
+      CREATE BASIC FORM TABLE
+    ====================================================== */
+
+    const createCareersBasicFormTable = async () => {
+      try {
+
+        const query = `
+          CREATE TABLE IF NOT EXISTS careers_tbl_basic_form (
+
+              id INT PRIMARY KEY AUTO_INCREMENT,
+
+              uuid CHAR(36) NOT NULL UNIQUE,
+
+              field_label VARCHAR(150) NOT NULL,
+
+              field_name VARCHAR(150) NOT NULL UNIQUE,
+
+              field_type ENUM(
+                  'text',
+                  'email',
+                  'number',
+                  'tel',
+                  'textarea',
+                  'select',
+                  'radio',
+                  'checkbox',
+                  'file',
+                  'date',
+                  'range'
+              ) NOT NULL,
+
+              placeholder VARCHAR(255) NULL,
+
+              helper_text VARCHAR(255) NULL,
+
+              field_options JSON NULL,
+
+              is_required BOOLEAN DEFAULT TRUE,
+
+              status ENUM(
+                  'Active',
+                  'Inactive'
+              ) DEFAULT 'Active',
+
+              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+              created_by INT NULL,
+
+              updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                  ON UPDATE CURRENT_TIMESTAMP,
+
+              updated_by INT NULL
+
+          )
+        `;
+
+        await db.query(query);
+
+        await createDefaultBasicFormFields();
+
+      } catch (error) {
+        console.error(
+          "Error creating careers_tbl_basic_form:",
+          error.message
+        );
+      }
+    };
+
+    /* ======================================================
+      INSERT DEFAULT BASIC FORM FIELDS
+    ====================================================== */
+
+    const createDefaultBasicFormFields = async () => {
+      try {
+
+        const fields = [
+
+          {
+            label: "Full Name",
+            name: "full_name",
+            type: "text",
+            placeholder: "Enter your full name",
+            helper: "Please enter your legal full name"
+          },
+
+          {
+            label: "Email",
+            name: "email",
+            type: "email",
+            placeholder: "Enter your email address",
+            helper: "We will contact you via email"
+          },
+
+          {
+            label: "Phone Number",
+            name: "phone_number",
+            type: "tel",
+            placeholder: "Enter your phone number",
+            helper: "Include country code if applicable"
+          },
+
+          {
+            label: "Resume",
+            name: "resume",
+            type: "file",
+            placeholder: null,
+            helper: "Upload PDF or DOC format"
+          }
+
+        ];
+
+        for (const field of fields) {
+
+          const [existing] = await db.query(
+            `
+            SELECT id
+            FROM careers_tbl_basic_form
+            WHERE field_name = ?
+            `,
+            [field.name]
+          );
+
+          if (existing.length === 0) {
+
+            await db.query(
+              `
+              INSERT INTO careers_tbl_basic_form (
+                uuid,
+                field_label,
+                field_name,
+                field_type,
+                placeholder,
+                helper_text,
+                field_options,
+                is_required,
+                status,
+                created_by
+              )
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Active', 1)
+              `,
+              [
+                uuidv4(),
+                field.label,
+                field.name,
+                field.type,
+                field.placeholder,
+                field.helper,
+                null,
+                true
+              ]
+            );
+
+          }
+        }
+
+      } catch (error) {
+        console.error(
+          "Error inserting default basic form fields:",
+          error.message
+        );
+      }
+    };
+
+    /* ======================================================
+      DEFAULT ROOT ADMIN
+    ====================================================== */
+
+    const createDefaultRootUser = async () => {
+      try {
+
+        const email = "careers@eparivartan.com";
+
+        const [existing] = await db.query(
+          "SELECT id FROM careers_tbl_admins WHERE email = ?",
+          [email]
+        );
+
+        if (existing.length > 0) return;
+
+        const hashedPassword = await bcrypt.hash(
+          "Password@123",
+          10
+        );
 
         await db.query(
           `
-          INSERT INTO careers_tbl_departments (
+          INSERT INTO careers_tbl_admins (
             uuid,
-            department_name,
-            department_slug,
-            status,
-            created_by
+            full_name,
+            email,
+            password,
+            role,
+            status
           )
-          VALUES (?, ?, ?, 'Active', 1)
+          VALUES (?, ?, ?, ?, 'Root Admin', 'Active')
           `,
           [
             uuidv4(),
-            dept,
-            slug
+            "Anand",
+            email,
+            hashedPassword
           ]
         );
 
+      } catch (error) {
+        console.error(
+          "Error creating default Root Admin:",
+          error.message
+        );
       }
-    }
+    };
 
-  } catch (error) {
-    console.error(
-      "Error inserting default departments:",
-      error.message
-    );
-  }
-};
+    const createCareersJobsTable = async () => {
+      try {
+        const query = `
+          CREATE TABLE IF NOT EXISTS careers_tbl_jobs (
+              id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+              uuid CHAR(36) NOT NULL UNIQUE,
+              job_title VARCHAR(250) NOT NULL,
+              job_slug VARCHAR(250) NOT NULL UNIQUE,
+              department ENUM(
+                  'Design',
+                  'Development',
+                  'Media',
+                  'Digital Marketing'
+              ) NOT NULL,
+              category VARCHAR(150) NOT NULL,
+              location VARCHAR(150) NOT NULL DEFAULT 'Hyderabad',
+              work_type ENUM(
+                  'On-site',
+                  'Hybrid',
+                  'Remote'
+              ) NOT NULL,
+              employment_type ENUM(
+                  'Full-time',
+                  'Part-time',
+                  'Contract',
+                  'Internship'
+              ) NOT NULL,
+              min_experience TINYINT UNSIGNED NOT NULL DEFAULT 0,
+              max_experience TINYINT UNSIGNED NOT NULL DEFAULT 0,
+              openings INT UNSIGNED NOT NULL DEFAULT 1,
+              status ENUM(
+                  'Draft',
+                  'Published',
+                  'Closed'
+              ) NOT NULL DEFAULT 'Draft',
+              job_description TEXT,
+              required_skills JSON DEFAULT (JSON_ARRAY()),
+              nice_to_have_skills JSON DEFAULT (JSON_ARRAY()),
+              responsibilities JSON DEFAULT (JSON_ARRAY()),
+              created_by INT UNSIGNED,
+              updated_by INT UNSIGNED,
+              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+              updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+          )
+        `;
+        await db.query(query);
+      } catch (error) {
+        console.error("Error creating careers_tbl_jobs:", error.message);
+      }
+    };
 
-/* ======================================================
-   CREATE CATEGORIES TABLE
+
+    /* ======================================================
+      CREATE JOB APPLICATION FIELDS TABLE
+    ====================================================== */
+
+    const createCareersJobApplicationFieldsTable = async () => {
+      try {
+
+        const query = `
+          CREATE TABLE IF NOT EXISTS careers_tbl_job_application_fields (
+
+              id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+
+              uuid CHAR(36) NOT NULL UNIQUE,
+
+              job_id INT UNSIGNED NOT NULL,
+
+              step_name VARCHAR(150) NOT NULL,
+
+              step_number INT UNSIGNED NOT NULL,
+
+              field_name VARCHAR(150) NOT NULL,
+
+              field_type ENUM(
+                  'text',
+                  'email',
+                  'number',
+                  'textarea',
+                  'select',
+                  'radio',
+                  'checkbox',
+                  'file',
+                  'date',
+                  'phone',
+                  'url',
+                  'toggle',
+                  'range'
+              ) NOT NULL,
+
+              placeholder_text VARCHAR(255) NULL,
+
+              helper_text VARCHAR(255) NULL,
+
+              field_options JSON NULL,
+
+              is_required BOOLEAN DEFAULT FALSE,
+
+              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+              created_by INT NULL,
+
+              updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                  ON UPDATE CURRENT_TIMESTAMP,
+
+              updated_by INT NULL,
+
+              CONSTRAINT fk_job_application_fields_job
+                  FOREIGN KEY (job_id)
+                  REFERENCES careers_tbl_jobs(id)
+                  ON DELETE CASCADE,
+
+              UNIQUE KEY unique_job_step_field (
+                  job_id,
+                  step_number,
+                  field_name
+              )
+
+          )
+        `;
+
+        await db.query(query);
+
+      } catch (error) {
+        console.error(
+          "Error creating careers_tbl_job_application_fields:",
+          error.message
+        );
+      }
+    };
+
+
+
+    /* ======================================================
+   CREATE JOB APPLICATIONS TABLE
 ====================================================== */
 
-const createCareersCategoriesTable = async () => {
+const createCareersJobApplicationsTable = async () => {
   try {
 
     const query = `
-      CREATE TABLE IF NOT EXISTS careers_tbl_categories (
+      CREATE TABLE IF NOT EXISTS careers_tbl_job_applications (
 
-          id INT PRIMARY KEY AUTO_INCREMENT,
+          id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
 
           uuid CHAR(36) NOT NULL UNIQUE,
 
-          department_id INT NOT NULL,
+          job_id INT UNSIGNED NOT NULL,
 
-          category_name VARCHAR(150) NOT NULL,
+          applicant_name VARCHAR(150) NOT NULL,
 
-          category_slug VARCHAR(150) NOT NULL,
+          applicant_email VARCHAR(150) NOT NULL,
+
+          applicant_phone VARCHAR(20) NULL,
+
+          resume_file VARCHAR(255) NULL,
 
           status ENUM(
-              'Active',
-              'Inactive'
-          ) DEFAULT 'Active',
+              'Submitted',
+              'Under Review',
+              'Shortlisted',
+              'Rejected',
+              'Hired'
+          ) DEFAULT 'Submitted',
 
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
@@ -191,9 +710,9 @@ const createCareersCategoriesTable = async () => {
 
           updated_by INT NULL,
 
-          CONSTRAINT fk_category_department
-              FOREIGN KEY (department_id)
-              REFERENCES careers_tbl_departments(id)
+          CONSTRAINT fk_application_job
+              FOREIGN KEY (job_id)
+              REFERENCES careers_tbl_jobs(id)
               ON DELETE CASCADE
 
       )
@@ -201,172 +720,36 @@ const createCareersCategoriesTable = async () => {
 
     await db.query(query);
 
-    await createDefaultCategories();
+    console.log("careers_tbl_job_applications created");
 
   } catch (error) {
     console.error(
-      "Error creating careers_tbl_categories:",
+      "Error creating careers_tbl_job_applications:",
       error.message
     );
   }
 };
 
-/* ======================================================
-   INSERT DEFAULT CATEGORIES
-====================================================== */
-
-const createDefaultCategories = async () => {
-  try {
-
-    const categoriesMap = {
-
-      Development: [
-        "Web Development",
-        "Mobile Development",
-        "DevOps & Cloud",
-        "Quality Assurance",
-        "Database",
-        "Architecture",
-        "Integration"
-      ],
-
-      Design: [
-        "UI/UX Design",
-        "Graphic Design",
-        "Product Design",
-        "Motion Graphics",
-        "Branding"
-      ],
-
-      "Digital Marketing": [
-        "SEO",
-        "Social Media Marketing",
-        "Performance Marketing",
-        "Content Marketing",
-        "Email Marketing"
-      ],
-
-      Media: [
-        "Videography",
-        "Video Editing",
-        "Video Production",
-        "Photography",
-        "Content Creation",
-        "Post Production",
-        "Motion Graphics & Animation"
-      ]
-
-    };
-
-    for (const departmentName in categoriesMap) {
-
-      const [dept] = await db.query(
-        `
-        SELECT id
-        FROM careers_tbl_departments
-        WHERE department_name = ?
-        `,
-        [departmentName]
-      );
-
-      if (dept.length === 0) continue;
-
-      const departmentId = dept[0].id;
-
-      for (const category of categoriesMap[departmentName]) {
-
-        const slug = category
-          .toLowerCase()
-          .replace(/\s+/g, "-");
-
-        const [existing] = await db.query(
-          `
-          SELECT id
-          FROM careers_tbl_categories
-          WHERE category_name = ?
-          AND department_id = ?
-          `,
-          [category, departmentId]
-        );
-
-        if (existing.length === 0) {
-
-          await db.query(
-            `
-            INSERT INTO careers_tbl_categories (
-              uuid,
-              department_id,
-              category_name,
-              category_slug,
-              status,
-              created_by
-            )
-            VALUES (?, ?, ?, ?, 'Active', 1)
-            `,
-            [
-              uuidv4(),
-              departmentId,
-              category,
-              slug
-            ]
-          );
-
-        }
-      }
-    }
-
-  } catch (error) {
-    console.error(
-      "Error inserting default categories:",
-      error.message
-    );
-  }
-};
 
 /* ======================================================
-   CREATE BASIC FORM TABLE
+   CREATE JOB APPLICATION ANSWERS TABLE
 ====================================================== */
 
-const createCareersBasicFormTable = async () => {
+const createCareersJobApplicationAnswersTable = async () => {
   try {
 
     const query = `
-      CREATE TABLE IF NOT EXISTS careers_tbl_basic_form (
+      CREATE TABLE IF NOT EXISTS careers_tbl_job_application_answers (
 
-          id INT PRIMARY KEY AUTO_INCREMENT,
+          id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
 
           uuid CHAR(36) NOT NULL UNIQUE,
 
-          field_label VARCHAR(150) NOT NULL,
+          application_id INT UNSIGNED NOT NULL,
 
-          field_name VARCHAR(150) NOT NULL UNIQUE,
+          field_id INT UNSIGNED NOT NULL,
 
-          field_type ENUM(
-              'text',
-              'email',
-              'number',
-              'tel',
-              'textarea',
-              'select',
-              'radio',
-              'checkbox',
-              'file',
-              'date',
-              'range'
-          ) NOT NULL,
-
-          placeholder VARCHAR(255) NULL,
-
-          helper_text VARCHAR(255) NULL,
-
-          field_options JSON NULL,
-
-          is_required BOOLEAN DEFAULT TRUE,
-
-          status ENUM(
-              'Active',
-              'Inactive'
-          ) DEFAULT 'Active',
+          field_value TEXT NULL,
 
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
@@ -375,252 +758,80 @@ const createCareersBasicFormTable = async () => {
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
               ON UPDATE CURRENT_TIMESTAMP,
 
-          updated_by INT NULL
+          updated_by INT NULL,
+
+          CONSTRAINT fk_application_answers_application
+              FOREIGN KEY (application_id)
+              REFERENCES careers_tbl_job_applications(id)
+              ON DELETE CASCADE,
+
+          CONSTRAINT fk_application_answers_field
+              FOREIGN KEY (field_id)
+              REFERENCES careers_tbl_job_application_fields(id)
+              ON DELETE CASCADE
 
       )
     `;
 
     await db.query(query);
 
-    await createDefaultBasicFormFields();
+    console.log("careers_tbl_job_application_answers created");
 
   } catch (error) {
     console.error(
-      "Error creating careers_tbl_basic_form:",
+      "Error creating careers_tbl_job_application_answers:",
       error.message
     );
   }
 };
 
-/* ======================================================
-   INSERT DEFAULT BASIC FORM FIELDS
-====================================================== */
 
-const createDefaultBasicFormFields = async () => {
-  try {
 
-    const fields = [
 
-      {
-        label: "Full Name",
-        name: "full_name",
-        type: "text",
-        placeholder: "Enter your full name",
-        helper: "Please enter your legal full name"
-      },
+    /* ======================================================
+      CREATE ALL TABLES
+    ====================================================== */
 
-      {
-        label: "Email",
-        name: "email",
-        type: "email",
-        placeholder: "Enter your email address",
-        helper: "We will contact you via email"
-      },
+    const createAllTables = async () => {
+      try {
 
-      {
-        label: "Phone Number",
-        name: "phone_number",
-        type: "tel",
-        placeholder: "Enter your phone number",
-        helper: "Include country code if applicable"
-      },
+        await createCareersAdminsTable();
 
-      {
-        label: "Resume",
-        name: "resume",
-        type: "file",
-        placeholder: null,
-        helper: "Upload PDF or DOC format"
-      }
+        await createCareersDepartmentsTable();
 
-    ];
+        await createCareersCategoriesTable();
 
-    for (const field of fields) {
+        await createCareersBasicFormTable();
 
-      const [existing] = await db.query(
-        `
-        SELECT id
-        FROM careers_tbl_basic_form
-        WHERE field_name = ?
-        `,
-        [field.name]
-      );
+        await createCareersJobsTable();
 
-      if (existing.length === 0) {
+        await createCareersJobApplicationFieldsTable();
 
-        await db.query(
-          `
-          INSERT INTO careers_tbl_basic_form (
-            uuid,
-            field_label,
-            field_name,
-            field_type,
-            placeholder,
-            helper_text,
-            field_options,
-            is_required,
-            status,
-            created_by
-          )
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Active', 1)
-          `,
-          [
-            uuidv4(),
-            field.label,
-            field.name,
-            field.type,
-            field.placeholder,
-            field.helper,
-            null,
-            true
-          ]
+        await createCareersJobApplicationsTable();
+
+        await createCareersJobApplicationAnswersTable();
+
+        console.log("All tables created successfully!");
+
+      } catch (err) {
+
+        console.log(
+          "Unable to create the tables",
+          err.message
         );
 
       }
-    }
+    };
 
-  } catch (error) {
-    console.error(
-      "Error inserting default basic form fields:",
-      error.message
-    );
-  }
-};
+    
 
-/* ======================================================
-   DEFAULT ROOT ADMIN
-====================================================== */
-
-const createDefaultRootUser = async () => {
-  try {
-
-    const email = "careers@eparivartan.com";
-
-    const [existing] = await db.query(
-      "SELECT id FROM careers_tbl_admins WHERE email = ?",
-      [email]
-    );
-
-    if (existing.length > 0) return;
-
-    const hashedPassword = await bcrypt.hash(
-      "Password@123",
-      10
-    );
-
-    await db.query(
-      `
-      INSERT INTO careers_tbl_admins (
-        uuid,
-        full_name,
-        email,
-        password,
-        role,
-        status
-      )
-      VALUES (?, ?, ?, ?, 'Root Admin', 'Active')
-      `,
-      [
-        uuidv4(),
-        "Anand",
-        email,
-        hashedPassword
-      ]
-    );
-
-  } catch (error) {
-    console.error(
-      "Error creating default Root Admin:",
-      error.message
-    );
-  }
-};
-
-const createCareersJobsTable = async () => {
-  try {
-    const query = `
-      CREATE TABLE IF NOT EXISTS careers_tbl_jobs (
-          id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-          uuid CHAR(36) NOT NULL UNIQUE,
-          job_title VARCHAR(250) NOT NULL,
-          job_slug VARCHAR(250) NOT NULL UNIQUE,
-          department ENUM(
-              'Design',
-              'Development',
-              'Media',
-              'Digital Marketing'
-          ) NOT NULL,
-          category VARCHAR(150) NOT NULL,
-          location VARCHAR(150) NOT NULL DEFAULT 'Hyderabad',
-          work_type ENUM(
-              'On-site',
-              'Hybrid',
-              'Remote'
-          ) NOT NULL,
-          employment_type ENUM(
-              'Full-time',
-              'Part-time',
-              'Contract',
-              'Internship'
-          ) NOT NULL,
-          min_experience TINYINT UNSIGNED NOT NULL DEFAULT 0,
-          max_experience TINYINT UNSIGNED NOT NULL DEFAULT 0,
-          openings INT UNSIGNED NOT NULL DEFAULT 1,
-          status ENUM(
-              'Draft',
-              'Published',
-              'Closed'
-          ) NOT NULL DEFAULT 'Draft',
-          job_description TEXT,
-          required_skills JSON DEFAULT (JSON_ARRAY()),
-          nice_to_have_skills JSON DEFAULT (JSON_ARRAY()),
-          responsibilities JSON DEFAULT (JSON_ARRAY()),
-          created_by INT UNSIGNED,
-          updated_by INT UNSIGNED,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-      )
-    `;
-    await db.query(query);
-  } catch (error) {
-    console.error("Error creating careers_tbl_jobs:", error.message);
-  }
-};
-
-/* ======================================================
-   CREATE ALL TABLES
-====================================================== */
-
-const createAllTables = async () => {
-  try {
-
-    await createCareersAdminsTable();
-
-    await createCareersDepartmentsTable();
-
-    await createCareersCategoriesTable();
-
-    await createCareersBasicFormTable();
-
-    await createCareersJobsTable();
-
-    console.log("All tables created successfully!");
-
-  } catch (err) {
-
-    console.log(
-      "Unable to create the tables",
-      err.message
-    );
-
-  }
-};
-
-module.exports = {
-  createAllTables,
-  createCareersAdminsTable,
-  createCareersDepartmentsTable,
-  createCareersCategoriesTable,
-  createCareersBasicFormTable,
-  createCareersJobsTable
-};
+    module.exports = {
+      createAllTables,
+      createCareersAdminsTable,
+      createCareersDepartmentsTable,
+      createCareersCategoriesTable,
+      createCareersBasicFormTable,
+      createCareersJobsTable,
+      createCareersJobApplicationsTable,
+      createCareersJobApplicationAnswersTable
+    };

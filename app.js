@@ -10,8 +10,9 @@
     const { createAllTables } = require("./database/createTables");
     const authRoute = require("./routes/authRoute");
     const careersMasterRoute = require("./routes/careersMasterRoutes");
-
+    const jobApplicationFieldsRoutes = require("./routes/jobApplicationFieldsRoutes");
     const jobsRoutes = require("./routes/jobsRoutes");
+    const jobApplicationsRoutes = require("./routes/jobApplicationsRoutes");
     
     
     // Middleware   
@@ -23,12 +24,25 @@
     app.use(express.json());
     app.use(express.urlencoded({ extended: true }));
     app.use(express.static(path.join(__dirname, "public")));
+    app.use(
+    "/api/job-applications",
+    jobApplicationsRoutes
+    );
+
+
+
+
+
 
     // Routes
     // Changed path to /api to keep it clean
     app.use("/api", authRoute); 
     app.use("/api/careers/master", careersMasterRoute);
     app.use("/api", jobsRoutes);
+    app.use(
+        "/api/job-application-fields",
+        jobApplicationFieldsRoutes
+    );
 
     app.get("/", (req, res) => {
         res.send("Backend Services are running!.");

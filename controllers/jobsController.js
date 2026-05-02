@@ -36,7 +36,7 @@ const createJob = async (req, res) => {
       .replace(/[\s_-]+/g, "-") // Replace spaces/underscores with -
       .replace(/^-+|-+$/g, ""); // Remove leading/trailing -
 
-    await db.query(
+    const [result] = await db.query(
       `
       INSERT INTO careers_tbl_jobs (
         uuid,
@@ -82,7 +82,9 @@ const createJob = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: "Job created successfully"
+      message: "Job created successfully",
+      jobId: result.insertId,
+      uuid: uuid
     });
 
   } catch (error) {
@@ -218,6 +220,8 @@ const updateJob = async (req, res) => {
       return res.status(400).json({ success: false, message: "No fields to update" });
     }
 
+    updateFields.push("updated_by = ?");
+    values.push(1); // Default admin ID
     values.push(uuid);
     
     const [result] = await db.query(
@@ -229,9 +233,12 @@ const updateJob = async (req, res) => {
       return res.status(404).json({ success: false, message: "Job not found" });
     }
 
+    const [jobRows] = await db.query("SELECT id FROM careers_tbl_jobs WHERE uuid = ?", [uuid]);
+
     res.json({
       success: true,
-      message: "Job updated successfully"
+      message: "Job updated successfully",
+      jobId: jobRows[0].id
     });
 
   } catch (error) {
