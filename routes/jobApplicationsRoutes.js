@@ -6,7 +6,6 @@ const {
   getAllApplications,
   getApplicationsByJob,
   getApplicationById,
-  updateApplicationStatus,
   deleteApplication
 } = require("../controllers/jobApplicationsController.js");
 
@@ -19,12 +18,15 @@ router.get(
   getAllApplications
 );
 
+const upload = require("../middleware/uploadMiddleware");
+
 /* ======================================================
    CREATE APPLICATION
 ====================================================== */
 
 router.post(
   "/create",
+  upload.any(),
   createApplication
 );
 
@@ -46,14 +48,6 @@ router.get(
   getApplicationById
 );
 
-/* ======================================================
-   UPDATE STATUS
-====================================================== */
-
-router.put(
-  "/status/:id",
-  updateApplicationStatus
-);
 
 /* ======================================================
    DELETE APPLICATION

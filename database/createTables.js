@@ -693,13 +693,6 @@ const createCareersJobApplicationsTable = async () => {
 
           resume_file VARCHAR(255) NULL,
 
-          status ENUM(
-              'Submitted',
-              'Under Review',
-              'Shortlisted',
-              'Rejected',
-              'Hired'
-          ) DEFAULT 'Submitted',
 
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 

@@ -12,7 +12,7 @@ const createApplication = async (req, res) => {
 
     await connection.beginTransaction();
 
-    const {
+    let {
       job_id,
       applicant_name,
       applicant_email,
@@ -21,6 +21,41 @@ const createApplication = async (req, res) => {
       answers,
       created_by
     } = req.body;
+
+    // Handle parsed JSON if sent as string in FormData
+    if (typeof answers === 'string') {
+      try {
+        answers = JSON.parse(answers);
+      } catch (e) {
+        answers = [];
+      }
+    }
+
+    // Process uploaded files
+    if (req.files && req.files.length > 0) {
+      req.files.forEach(file => {
+        if (file.fieldname === 'resume_file') {
+          resume_file = file.path;
+        } else {
+          // Check if this file corresponds to one of the custom answers
+          // We assume the fieldname is the field_id
+          const fieldId = file.fieldname;
+          
+          // Find the answer in the answers array and update its value
+          // or add it if it doesn't exist
+          const answerIndex = (answers || []).findIndex(a => a.field_id == fieldId);
+          if (answerIndex > -1) {
+            answers[answerIndex].field_value = file.path;
+          } else {
+            if (!answers) answers = [];
+            answers.push({
+              field_id: fieldId,
+              field_value: file.path
+            });
+          }
+        }
+      });
+    }
 
     /* -----------------------------
        INSERT APPLICATION
@@ -120,7 +155,7 @@ const createApplication = async (req, res) => {
 const getAllApplications = async (req, res) => {
   try {
     const [rows] = await db.query(`
-      SELECT a.*, j.job_title, j.category as job_category
+      SELECT a.*, j.job_title, j.category as job_category, j.department
       FROM careers_tbl_job_applications a
       LEFT JOIN careers_tbl_jobs j ON a.job_id = j.id
       ORDER BY a.created_at DESC
@@ -242,54 +277,6 @@ const getApplicationById = async (req, res) => {
   }
 };
 
-/* ======================================================
-   UPDATE APPLICATION STATUS
-====================================================== */
-
-const updateApplicationStatus = async (req, res) => {
-  try {
-
-    const { id } = req.params;
-
-    const {
-      status,
-      updated_by
-    } = req.body;
-
-    await db.query(
-      `
-      UPDATE careers_tbl_job_applications
-      SET
-        status = ?,
-        updated_by = ?
-      WHERE id = ?
-      `,
-      [
-        status,
-        updated_by || null,
-        id
-      ]
-    );
-
-    res.status(200).json({
-      success: true,
-      message: "Status updated successfully"
-    });
-
-  } catch (error) {
-
-    console.error(
-      "Update Status Error:",
-      error.message
-    );
-
-    res.status(500).json({
-      success: false,
-      message: "Failed to update status"
-    });
-
-  }
-};
 
 /* ======================================================
    DELETE APPLICATION
@@ -333,6 +320,5 @@ module.exports = {
   getAllApplications,
   getApplicationsByJob,
   getApplicationById,
-  updateApplicationStatus,
   deleteApplication
 };
