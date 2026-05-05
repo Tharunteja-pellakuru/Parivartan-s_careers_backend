@@ -15,12 +15,19 @@ const {
   getBasicFormFields,
   addBasicFormField,
   updateBasicFormField,
-  deleteBasicFormField
+  deleteBasicFormField,
+  getAllHiringStages,
+  getAllHiringStatus,
+  getStatusByStage,
+  addHiringStage,
+  updateHiringStage,
+  deleteHiringStage,
+  addHiringStatus
 } = require("../controllers/careersMasterController");
 
 /* ======================================================
    ROUTES
-====================================================== */
+===================================================== */
 
 router.get(
   "/departments",
@@ -85,6 +92,45 @@ router.put(
 router.delete(
   "/delete-basic-form-field/:id",
   deleteBasicFormField
+);
+
+/* ======================================================
+   HIRING STAGES & STATUS ROUTES
+====================================================== */
+
+router.get(
+  "/hiring-stages",
+  getAllHiringStages
+);
+
+router.get(
+  "/hiring-statuses",
+  getAllHiringStatus
+);
+
+router.get(
+  "/status-by-stage",
+  getStatusByStage
+);
+
+router.post(
+  "/add-hiring-stage",
+  addHiringStage
+);
+
+router.put(
+  "/update-hiring-stage/:id",
+  updateHiringStage
+);
+
+router.delete(
+  "/delete-hiring-stage/:id",
+  deleteHiringStage
+);
+
+router.post(
+  "/add-hiring-status",
+  addHiringStatus
 );
 
 module.exports = router;

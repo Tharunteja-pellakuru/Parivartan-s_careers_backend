@@ -224,9 +224,15 @@ const getApplicationById = async (req, res) => {
 
     const [application] = await db.query(
       `
-      SELECT a.*, j.job_title
+      SELECT 
+        a.*, 
+        j.job_title,
+        s.name as stage_name,
+        st.name as status_name
       FROM careers_tbl_job_applications a
       JOIN careers_tbl_jobs j ON j.id = a.job_id
+      LEFT JOIN careers_tbl_hiring_stages s ON s.id = a.current_stage_id
+      LEFT JOIN careers_tbl_hiring_status st ON st.id = a.current_status_id
       WHERE a.id = ?
       `,
       [id]
@@ -315,10 +321,50 @@ const deleteApplication = async (req, res) => {
   }
 };
 
+/* ======================================================
+   UPDATE APPLICATION STAGE & STATUS
+====================================================== */
+
+const updateApplicationStage = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { stage_id, status_id } = req.body;
+
+    if (!stage_id || !status_id) {
+      return res.status(400).json({
+        success: false,
+        message: "stage_id and status_id are required"
+      });
+    }
+
+    await db.query(
+      `
+      UPDATE careers_tbl_job_applications
+      SET current_stage_id = ?, current_status_id = ?, updated_by = ?
+      WHERE id = ?
+      `,
+      [stage_id, status_id, req.user?.id || 1, id]
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Application stage updated successfully"
+    });
+
+  } catch (error) {
+    console.error("Update Application Stage Error:", error.message);
+    res.status(500).json({
+      success: false,
+      message: "Failed to update application stage"
+    });
+  }
+};
+
 module.exports = {
   createApplication,
   getAllApplications,
   getApplicationsByJob,
   getApplicationById,
+  updateApplicationStage,
   deleteApplication
 };

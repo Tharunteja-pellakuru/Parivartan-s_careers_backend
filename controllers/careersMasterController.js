@@ -521,6 +521,311 @@ const deleteBasicFormField = async (req, res) => {
   }
 };
 
+
+/* ======================================================
+   GET ALL HIRING STAGES
+====================================================== */
+
+const getAllHiringStages = async (req, res) => {
+  try {
+
+    const [stages] = await db.query(`
+      SELECT 
+        id,
+        uuid,
+        name,
+        order_index,
+        is_final
+      FROM careers_tbl_hiring_stages
+      WHERE is_active = TRUE
+      ORDER BY order_index ASC
+    `);
+
+    return res.status(200).json({
+      success: true,
+      message: "Hiring stages fetched successfully",
+      data: stages
+    });
+
+  } catch (error) {
+    console.error("Error fetching hiring stages:", error.message);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch hiring stages"
+    });
+  }
+};
+
+/* ======================================================
+   GET ALL HIRING STATUS
+====================================================== */
+
+const getAllHiringStatus = async (req, res) => {
+  try {
+
+    const [statuses] = await db.query(`
+      SELECT 
+        id,
+        uuid,
+        name
+      FROM careers_tbl_hiring_status
+      ORDER BY name ASC
+    `);
+
+    return res.status(200).json({
+      success: true,
+      message: "Hiring statuses fetched successfully",
+      data: statuses
+    });
+
+  } catch (error) {
+    console.error("Error fetching hiring statuses:", error.message);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch hiring statuses"
+    });
+  }
+};
+
+/* ======================================================
+   GET STATUS BY STAGE (DYNAMIC DROPDOWN)
+====================================================== */
+
+const getStatusByStage = async (req, res) => {
+  try {
+
+    const stage_id = req.body.stage_id || req.query.stage_id;
+
+    if (!stage_id) {
+      return res.status(400).json({
+        success: false,
+        message: "stage_id is required"
+      });
+    }
+
+    const [statuses] = await db.query(
+      `
+      SELECT 
+        s.id,
+        s.uuid,
+        s.name
+      FROM careers_tbl_stage_status_mapping m
+      JOIN careers_tbl_hiring_status s 
+        ON m.status_id = s.id
+      WHERE m.stage_id = ?
+      ORDER BY s.name ASC
+      `,
+      [stage_id]
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Statuses fetched for stage",
+      data: statuses
+    });
+
+  } catch (error) {
+    console.error("Error fetching statuses by stage:", error.message);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch statuses"
+    });
+  }
+};
+
+/* ======================================================
+   ADD HIRING STAGE
+====================================================== */
+
+const addHiringStage = async (req, res) => {
+  try {
+
+    const { name, order_index, is_final } = req.body;
+
+    if (!name || !order_index) {
+      return res.status(400).json({
+        success: false,
+        message: "name and order_index are required"
+      });
+    }
+
+    const [existing] = await db.query(
+      "SELECT id FROM careers_tbl_hiring_stages WHERE name = ?",
+      [name]
+    );
+
+    if (existing.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Stage already exists"
+      });
+    }
+
+    await db.query(
+      `
+      INSERT INTO careers_tbl_hiring_stages 
+      (uuid, name, order_index, is_final, created_by)
+      VALUES (?, ?, ?, ?, ?)
+      `,
+      [
+        uuidv4(),
+        name,
+        order_index,
+        is_final || 0,
+        req.user?.id || 1   // fallback if auth not added
+      ]
+    );
+
+    return res.status(201).json({
+      success: true,
+      message: "Stage added successfully"
+    });
+
+  } catch (error) {
+    console.error("Error adding stage:", error.message);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to add stage"
+    });
+  }
+};
+
+/* ======================================================
+   UPDATE HIRING STAGE
+====================================================== */
+
+const updateHiringStage = async (req, res) => {
+  try {
+
+    const { id } = req.params;
+    const { name, order_index, is_final } = req.body;
+
+    await db.query(
+      `
+      UPDATE careers_tbl_hiring_stages
+      SET name = ?, order_index = ?, is_final = ?, updated_by = ?
+      WHERE id = ?
+      `,
+      [
+        name,
+        order_index,
+        is_final,
+        req.user?.id || 1,
+        id
+      ]
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Stage updated successfully"
+    });
+
+  } catch (error) {
+    console.error("Error updating stage:", error.message);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to update stage"
+    });
+  }
+};
+
+/* ======================================================
+   DELETE HIRING STAGE (SOFT DELETE)
+====================================================== */
+
+const deleteHiringStage = async (req, res) => {
+  try {
+
+    const { id } = req.params;
+
+    await db.query(
+      `
+      UPDATE careers_tbl_hiring_stages
+      SET is_active = FALSE, updated_by = ?
+      WHERE id = ?
+      `,
+      [
+        req.user?.id || 1,
+        id
+      ]
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Stage deleted successfully"
+    });
+
+  } catch (error) {
+    console.error("Error deleting stage:", error.message);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to delete stage"
+    });
+  }
+};
+
+/* ======================================================
+   ADD HIRING STATUS
+====================================================== */
+
+const addHiringStatus = async (req, res) => {
+  try {
+
+    const { name } = req.body;
+
+    if (!name) {
+      return res.status(400).json({
+        success: false,
+        message: "Status name is required"
+      });
+    }
+
+    const [existing] = await db.query(
+      "SELECT id FROM careers_tbl_hiring_status WHERE name = ?",
+      [name]
+    );
+
+    if (existing.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Status already exists"
+      });
+    }
+
+    await db.query(
+      `
+      INSERT INTO careers_tbl_hiring_status (uuid, name, created_by)
+      VALUES (?, ?, ?)
+      `,
+      [
+        uuidv4(),
+        name,
+        req.user?.id || 1
+      ]
+    );
+
+    return res.status(201).json({
+      success: true,
+      message: "Status added successfully"
+    });
+
+  } catch (error) {
+    console.error("Error adding status:", error.message);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to add status"
+    });
+  }
+};
+
+
 module.exports = {
   getAllDepartments,
   getCategoriesByDepartment,
@@ -534,5 +839,12 @@ module.exports = {
   getBasicFormFields,
   addBasicFormField,
   updateBasicFormField,
-  deleteBasicFormField
+  deleteBasicFormField,
+  getAllHiringStages,
+  getAllHiringStatus,
+  getStatusByStage,
+  addHiringStage,
+  updateHiringStage,
+  deleteHiringStage,
+  addHiringStatus
 };

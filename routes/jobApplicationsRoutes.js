@@ -6,6 +6,7 @@ const {
   getAllApplications,
   getApplicationsByJob,
   getApplicationById,
+  updateApplicationStage,
   deleteApplication
 } = require("../controllers/jobApplicationsController.js");
 
@@ -46,6 +47,16 @@ router.get(
 router.get(
   "/:id",
   getApplicationById
+);
+
+
+/* ======================================================
+   UPDATE APPLICATION STAGE
+====================================================== */
+
+router.put(
+  "/update-stage/:id",
+  updateApplicationStage
 );
 
 
