@@ -1174,6 +1174,51 @@ const createDefaultStageStatusMapping = async () => {
 
 
 
+
+    /* ======================================================
+      CREATE GENERAL APPLICATIONS TABLE
+    ====================================================== */
+
+    const createCareersGeneralApplicationsTable = async () => {
+      try {
+
+        const query = `
+          CREATE TABLE IF NOT EXISTS careers_tbl_general_applications (
+              id INT PRIMARY KEY AUTO_INCREMENT,
+              uuid CHAR(36) NOT NULL UNIQUE,
+              full_name VARCHAR(150) NOT NULL,
+              email VARCHAR(150) NOT NULL,
+              phone_number VARCHAR(20) NOT NULL,
+              experience VARCHAR(50) NOT NULL,
+              portfolio_url VARCHAR(255) NULL,
+              resume_file VARCHAR(255) NOT NULL,
+              reason_to_join TEXT NULL,
+              status ENUM('Pending', 'Reviewed', 'Shortlisted', 'Rejected') DEFAULT 'Pending',
+              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+              updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+          )
+        `;
+
+        await db.query(query);
+
+        // Migration: Ensure 'status' column exists
+        const [columns] = await db.query("SHOW COLUMNS FROM careers_tbl_general_applications LIKE 'status'");
+        if (columns.length === 0) {
+          await db.query(`
+            ALTER TABLE careers_tbl_general_applications 
+            ADD COLUMN status ENUM('Pending', 'Reviewed', 'Shortlisted', 'Rejected') DEFAULT 'Pending' 
+            AFTER reason_to_join
+          `);
+        }
+
+      } catch (error) {
+        console.error(
+          "Error creating careers_tbl_general_applications:",
+          error.message
+        );
+      }
+    };
+
     /* ======================================================
       CREATE ALL TABLES
     ====================================================== */
@@ -1203,6 +1248,8 @@ const createDefaultStageStatusMapping = async () => {
 
         await createStageStatusMappingTable();
 
+        await createCareersGeneralApplicationsTable();
+
         console.log("All tables created successfully!");
 
       } catch (err) {
@@ -1228,5 +1275,6 @@ const createDefaultStageStatusMapping = async () => {
       createCareersJobApplicationAnswersTable,
       createCareersHiringStagesTable,
       createCareersHiringStatusTable,
-      createStageStatusMappingTable
+      createStageStatusMappingTable,
+      createCareersGeneralApplicationsTable
     };

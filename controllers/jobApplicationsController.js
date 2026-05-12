@@ -1,5 +1,7 @@
 const db = require("../config/db");
 const { v4: uuidv4 } = require("uuid");
+const transporter = require("../config/mail");
+const path = require("path");
 
 /* ======================================================
    CREATE APPLICATION + ANSWERS (TRANSACTION)
@@ -61,6 +63,7 @@ const createApplication = async (req, res) => {
        INSERT APPLICATION
     ----------------------------- */
 
+    const applicationUuid = uuidv4();
     const applicationQuery = `
       INSERT INTO careers_tbl_job_applications (
         uuid,
@@ -77,7 +80,7 @@ const createApplication = async (req, res) => {
     const [result] = await connection.query(
       applicationQuery,
       [
-        uuidv4(),
+        applicationUuid,
         job_id,
         applicant_name,
         applicant_email,
@@ -123,7 +126,48 @@ const createApplication = async (req, res) => {
 
     }
 
+    // Fetch Job Title for Email
+    const [jobRows] = await connection.query("SELECT job_title FROM careers_tbl_jobs WHERE id = ?", [job_id]);
+    const jobTitle = jobRows[0]?.job_title || "Position";
+
     await connection.commit();
+
+    // Send Emails
+    const adminEmail = "pellakurutharunteja@gmail.com";
+
+    // 1. Email to Admin
+    const adminMailOptions = {
+      from: process.env.MAIL_USER,
+      to: adminEmail,
+      subject: `New Application for ${jobTitle}: ${applicant_name}`,
+      html: `
+        <h2>New Job Application Received</h2>
+        <p><strong>Job Position:</strong> ${jobTitle}</p>
+        <p><strong>Candidate Name:</strong> ${applicant_name}</p>
+        <p><strong>Email:</strong> ${applicant_email}</p>
+        <p><strong>Phone:</strong> ${applicant_phone}</p>
+        <p>Please check the admin dashboard for the full profile and resume.</p>
+      `,
+    };
+
+    // 2. Email to Applicant
+    const applicantMailOptions = {
+      from: process.env.MAIL_USER,
+      to: applicant_email,
+      subject: `Application Received - ${jobTitle}`,
+      html: `
+        <h2>Hi ${applicant_name},</h2>
+        <p>Thank you for applying for the <strong>${jobTitle}</strong> position at eParivartan.</p>
+        <p>We have successfully received your application. Our hiring team will review your profile and if your experience aligns with our requirements, we will reach out to you for the next steps.</p>
+        <br>
+        <p>Best Regards,</p>
+        <p><strong>HR Team</strong></p>
+        <p>eParivartan</p>
+      `,
+    };
+
+    transporter.sendMail(adminMailOptions).catch(err => console.error("Admin Email Error:", err));
+    transporter.sendMail(applicantMailOptions).catch(err => console.error("Applicant Email Error:", err));
 
     res.status(201).json({
       success: true,
@@ -152,25 +196,22 @@ const createApplication = async (req, res) => {
   }
 };
 
+/* ======================================================
+   GET ALL APPLICATIONS (LIST)
+====================================================== */
+
 const getAllApplications = async (req, res) => {
   try {
     const [rows] = await db.query(`
-      SELECT a.*, j.job_title, j.category as job_category, j.department
+      SELECT a.*, j.job_title 
       FROM careers_tbl_job_applications a
-      LEFT JOIN careers_tbl_jobs j ON a.job_id = j.id
+      JOIN careers_tbl_jobs j ON a.job_id = j.id
       ORDER BY a.created_at DESC
     `);
-
-    res.status(200).json({
-      success: true,
-      data: rows
-    });
+    res.status(200).json({ success: true, data: rows });
   } catch (error) {
     console.error("Fetch All Applications Error:", error.message);
-    res.status(500).json({
-      success: false,
-      message: "Failed to fetch applications"
-    });
+    res.status(500).json({ success: false, message: "Failed to fetch applications" });
   }
 };
 
@@ -180,106 +221,60 @@ const getAllApplications = async (req, res) => {
 
 const getApplicationsByJob = async (req, res) => {
   try {
-
     const { job_id } = req.params;
-
-    const [rows] = await db.query(
-      `
-      SELECT *
-      FROM careers_tbl_job_applications
-      WHERE job_id = ?
-      ORDER BY created_at DESC
-      `,
-      [job_id]
-    );
-
-    res.status(200).json({
-      success: true,
-      data: rows
-    });
-
+    const [rows] = await db.query(`
+      SELECT a.*, j.job_title 
+      FROM careers_tbl_job_applications a
+      JOIN careers_tbl_jobs j ON a.job_id = j.id
+      WHERE a.job_id = ?
+      ORDER BY a.created_at DESC
+    `, [job_id]);
+    res.status(200).json({ success: true, data: rows });
   } catch (error) {
-
-    console.error(
-      "Fetch Applications Error:",
-      error.message
-    );
-
-    res.status(500).json({
-      success: false,
-      message: "Failed to fetch applications"
-    });
-
+    console.error("Fetch Applications By Job Error:", error.message);
+    res.status(500).json({ success: false, message: "Failed to fetch applications" });
   }
 };
 
 /* ======================================================
-   GET SINGLE APPLICATION WITH ANSWERS
+   GET APPLICATION BY ID (DETAILS)
 ====================================================== */
 
 const getApplicationById = async (req, res) => {
   try {
-
     const { id } = req.params;
-
-    const [application] = await db.query(
-      `
-      SELECT 
-        a.*, 
-        j.job_title,
-        s.name as stage_name,
-        st.name as status_name
+    
+    // Fetch basic application info
+    const [appRows] = await db.query(`
+      SELECT a.*, j.job_title, s.name as stage_name, st.name as status_name
       FROM careers_tbl_job_applications a
-      JOIN careers_tbl_jobs j ON j.id = a.job_id
-      LEFT JOIN careers_tbl_hiring_stages s ON s.id = a.current_stage_id
-      LEFT JOIN careers_tbl_hiring_status st ON st.id = a.current_status_id
+      JOIN careers_tbl_jobs j ON a.job_id = j.id
+      LEFT JOIN careers_tbl_hiring_stages s ON a.current_stage_id = s.id
+      LEFT JOIN careers_tbl_hiring_status st ON a.current_status_id = st.id
       WHERE a.id = ?
-      `,
-      [id]
-    );
+    `, [id]);
 
-    if (application.length === 0) {
-
-      return res.status(404).json({
-        success: false,
-        message: "Application not found"
-      });
-
+    if (appRows.length === 0) {
+      return res.status(404).json({ success: false, message: "Application not found" });
     }
 
-    const [answers] = await db.query(
-      `
-      SELECT
-        a.id,
-        a.field_id,
-        f.field_name,
-        a.field_value
-      FROM careers_tbl_job_application_answers a
-      JOIN careers_tbl_job_application_fields f
-        ON f.id = a.field_id
-      WHERE a.application_id = ?
-      `,
-      [id]
-    );
+    // Fetch custom answers
+    const [answerRows] = await db.query(`
+      SELECT ans.*, f.field_name, f.field_type
+      FROM careers_tbl_job_application_answers ans
+      JOIN careers_tbl_job_application_fields f ON ans.field_id = f.id
+      WHERE ans.application_id = ?
+    `, [id]);
 
     res.status(200).json({
       success: true,
-      application: application[0],
-      answers
+      application: appRows[0],
+      answers: answerRows
     });
 
   } catch (error) {
-
-    console.error(
-      "Get Application Error:",
-      error.message
-    );
-
-    res.status(500).json({
-      success: false,
-      message: "Failed to fetch application"
-    });
-
+    console.error("Get Application By ID Error:", error.message);
+    res.status(500).json({ success: false, message: "Failed to fetch application details" });
   }
 };
 
@@ -290,34 +285,12 @@ const getApplicationById = async (req, res) => {
 
 const deleteApplication = async (req, res) => {
   try {
-
     const { id } = req.params;
-
-    await db.query(
-      `
-      DELETE FROM careers_tbl_job_applications
-      WHERE id = ?
-      `,
-      [id]
-    );
-
-    res.status(200).json({
-      success: true,
-      message: "Application deleted successfully"
-    });
-
+    await db.query(`DELETE FROM careers_tbl_job_applications WHERE id = ?`, [id]);
+    res.status(200).json({ success: true, message: "Application deleted successfully" });
   } catch (error) {
-
-    console.error(
-      "Delete Application Error:",
-      error.message
-    );
-
-    res.status(500).json({
-      success: false,
-      message: "Failed to delete application"
-    });
-
+    console.error("Delete Application Error:", error.message);
+    res.status(500).json({ success: false, message: "Failed to delete application" });
   }
 };
 
@@ -337,6 +310,7 @@ const updateApplicationStage = async (req, res) => {
       });
     }
 
+    // Update the stage
     await db.query(
       `
       UPDATE careers_tbl_job_applications
@@ -345,6 +319,36 @@ const updateApplicationStage = async (req, res) => {
       `,
       [stage_id, status_id, req.user?.id || 1, id]
     );
+
+    // Fetch Applicant and Stage Details for Email
+    const [dataRows] = await db.query(`
+      SELECT a.applicant_name, a.applicant_email, j.job_title, s.name as stage_name
+      FROM careers_tbl_job_applications a
+      JOIN careers_tbl_jobs j ON a.job_id = j.id
+      JOIN careers_tbl_hiring_stages s ON s.id = ?
+      WHERE a.id = ?
+    `, [stage_id, id]);
+
+    if (dataRows.length > 0) {
+      const { applicant_name, applicant_email, job_title, stage_name } = dataRows[0];
+
+      const updateMailOptions = {
+        from: process.env.MAIL_USER,
+        to: applicant_email,
+        subject: `Application Update - ${job_title}`,
+        html: `
+          <h2>Hi ${applicant_name},</h2>
+          <p>We are pleased to inform you that your application for the <strong>${job_title}</strong> position has moved to the next stage: <strong>${stage_name}</strong>.</p>
+          <p>Our team will contact you shortly with further instructions regarding this round.</p>
+          <br>
+          <p>Best Regards,</p>
+          <p><strong>HR Team</strong></p>
+          <p>eParivartan</p>
+        `,
+      };
+
+      transporter.sendMail(updateMailOptions).catch(err => console.error("Stage Update Email Error:", err));
+    }
 
     res.status(200).json({
       success: true,

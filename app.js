@@ -13,6 +13,7 @@
     const jobApplicationFieldsRoutes = require("./routes/jobApplicationFieldsRoutes");
     const jobsRoutes = require("./routes/jobsRoutes");
     const jobApplicationsRoutes = require("./routes/jobApplicationsRoutes");
+    const generalApplicationRoutes = require("./routes/generalApplicationRoutes");
     
     
     // Middleware   
@@ -44,6 +45,7 @@
         "/api/job-application-fields",
         jobApplicationFieldsRoutes
     );
+    app.use("/", generalApplicationRoutes);
 
     app.get("/", (req, res) => {
         res.send("Backend Services are running!.");
